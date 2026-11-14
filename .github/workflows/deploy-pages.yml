@@ -1,0 +1,42 @@
+name: Deploy InternTrack LinkedIn preview
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: interntrack-link-preview-pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout public preview page
+        uses: actions/checkout@v4
+      - name: Build small, self-contained static preview
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp index.html _site/index.html
+          curl --fail --location --retry 3 --connect-timeout 10 --max-time 60 --silent --show-error \
+            "https://interntrack-6k9.pages.dev/social-preview.png" \
+            --output _site/social-preview.png
+          test "$(wc -c < _site/social-preview.png)" -gt 10000
+          file _site/social-preview.png | grep -q 'PNG image data'
+          grep -q 'interntrack-linkedin-preview/social-preview.png' _site/index.html
+          printf 'LinkedIn preview metadata and local PNG staged for deploy.\n'
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload static site artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
